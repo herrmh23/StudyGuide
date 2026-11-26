@@ -104,6 +104,7 @@ private val folderListSaver = listSaver<List<Folder>, Bundle>(
 fun HomeScreen() {
     var showDialog by rememberSaveable {mutableStateOf(false) }
     var folderName by rememberSaveable { mutableStateOf("") }
+    var settingsPage by rememberSaveable { mutableStateOf<SettingsPage?>(null) }
     var showAddMenu by remember { mutableStateOf(false) }
 
     //region List Variables
@@ -171,11 +172,25 @@ fun HomeScreen() {
     }
     //endregion
 
-    BackHandler(enabled = currentFolder != null, onBack = goBack)
+    val goBackFromSettings = {
+        settingsPage = if (settingsPage == SettingsPage.Menu) null else SettingsPage.Menu
+    }
+    BackHandler(enabled = currentFolder != null && settingsPage == null, onBack = goBack)
+    BackHandler(enabled = settingsPage != null, onBack = goBackFromSettings)
 
     //filter files by folder
     val shownFiles = files.filter {
         it.parentId == currentFolderId
+    }
+
+    val page = settingsPage
+    if (page != null) {
+        SettingsScreen(
+            page = page,
+            onBack = goBackFromSettings,
+            onOpenPage = { settingsPage = it }
+        )
+        return
     }
 
     Scaffold(
@@ -190,6 +205,17 @@ fun HomeScreen() {
                                 contentDescription = stringResource(R.string.back_to_parent)
                             )
                         }
+                    }
+                },
+                actions = {
+                    IconButton(onClick = {
+                        showAddMenu = false
+                        settingsPage = SettingsPage.Menu
+                    }) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_settings),
+                            contentDescription = stringResource(R.string.settings)
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = colors.surface)
