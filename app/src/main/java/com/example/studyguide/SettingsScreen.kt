@@ -34,7 +34,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 
-internal enum class SettingsPage(@StringRes val title: Int) {
+internal enum class SettingsPage(@get:StringRes val title: Int) {
     Menu(R.string.settings),
     Profile(R.string.settings_profile),
     Terms(R.string.settings_terms),
