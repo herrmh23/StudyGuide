@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.AlertDialog
@@ -90,6 +91,9 @@ fun HomeScreen() {
     var folders by rememberSaveable(stateSaver = folderListSaver) { mutableStateOf(emptyList<Folder>()) }
     var currentFolderId by rememberSaveable { mutableStateOf<String?>(null) }
 
+    val gridState = rememberSaveable(currentFolderId, saver = LazyGridState.Saver) {
+        LazyGridState()
+    }
     val foldersById = folders.associateBy { it.id }
     val foldersByParent = folders.groupBy { it.parentId }
     val currentFolder = currentFolderId?.let(foldersById::get)
@@ -139,6 +143,7 @@ fun HomeScreen() {
         ) {
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 320.dp),
+                state = gridState,
                 modifier = Modifier.widthIn(max = 1040.dp).fillMaxSize(),
                 contentPadding = PaddingValues(start = 20.dp, top = 24.dp, end = 20.dp, bottom = 88.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
