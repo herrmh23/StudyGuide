@@ -171,7 +171,8 @@ fun HomeScreen() {
         }
     }
     //endregion
-
+    
+    //BackHandler(enabled = currentFolder != null, onBack = goBack)
     val goBackFromSettings = {
         settingsPage = if (settingsPage == SettingsPage.Menu) null else SettingsPage.Menu
     }
