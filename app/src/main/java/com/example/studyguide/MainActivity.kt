@@ -1,181 +1,240 @@
-
 package com.example.studyguide
 
-import android.annotation.SuppressLint
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.*
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import com.example.studyguide.components.FolderButton
 import com.example.studyguide.models.Folder
-import androidx.compose.ui.Alignment
+import com.example.studyguide.ui.theme.StudyGuideTheme
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
 
         setContent {
-            MaterialTheme {
+            StudyGuideTheme {
                 HomeScreen()
             }
         }
     }
 }
 
+private val folderListSaver = listSaver<List<Folder>, Bundle>(
+    save = { folders ->
+        folders.map { folder ->
+            Bundle().apply {
+                putString("id", folder.id)
+                putString("name", folder.name)
+                putString("parentId", folder.parentId)
+            }
+        }
+    },
+    restore = { entries ->
+        entries.map { entry ->
+            Folder(
+                id = requireNotNull(entry.getString("id")),
+                name = requireNotNull(entry.getString("name")),
+                parentId = entry.getString("parentId")
+            )
+        }
+    }
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen() {
+    var showDialog by rememberSaveable { mutableStateOf(false) }
+    var folderName by rememberSaveable { mutableStateOf("") }
+    var folders by rememberSaveable(stateSaver = folderListSaver) { mutableStateOf(emptyList<Folder>()) }
+    var currentFolderId by rememberSaveable { mutableStateOf<String?>(null) }
 
-    var showDialog by remember {mutableStateOf(false)}
-    var folderName by remember {mutableStateOf("")}
-
-    val folders = remember {
-        mutableStateListOf<Folder>()
+    val foldersById = folders.associateBy { it.id }
+    val foldersByParent = folders.groupBy { it.parentId }
+    val currentFolder = currentFolderId?.let(foldersById::get)
+    val visibleFolders = foldersByParent[currentFolderId].orEmpty()
+    val goBack = { currentFolderId = currentFolder?.parentId }
+    val openCreateDialog = {
+        folderName = ""
+        showDialog = true
     }
+    val colors = MaterialTheme.colorScheme
 
-    var currentFolderId by remember {mutableStateOf<String?>(null)}
+    BackHandler(enabled = currentFolder != null, onBack = goBack)
 
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.app_name)) },
+                navigationIcon = {
+                    if (currentFolder != null) {
+                        IconButton(onClick = goBack) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_back),
+                                contentDescription = stringResource(R.string.back_to_parent)
+                            )
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = colors.surface)
+            )
+        },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = {
-                    folderName = ""
-                    showDialog = true
-                }
+                onClick = openCreateDialog,
+                containerColor = colors.primary,
+                contentColor = colors.onPrimary
             ) {
-                Text(text = "+",
-                    style = MaterialTheme.typography.headlineMedium)
-
+                Icon(
+                    painter = painterResource(R.drawable.ic_add),
+                    contentDescription = stringResource(R.string.new_folder)
+                )
             }
         }
     ) { innerPadding ->
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp)
+        Box(
+            modifier = Modifier.fillMaxSize().padding(innerPadding),
+            contentAlignment = Alignment.TopCenter
         ) {
-
-
-            Text(
-                text = folders.find{ //loops through all folders
-                    it.id == currentFolderId //finds which folder equals the current id
-                }?.name ?: "StudyGuide", //if the result is null, display this
-                style = MaterialTheme.typography.headlineLarge
-            )
-
-            Row(
-                modifier = Modifier
-                    .padding(innerPadding),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) { //start of row
-                if(currentFolderId != null) {
-
-                    //folder path display
-                    val folderPath = mutableListOf<String>()
-                    var currFolder = currentFolderId
-
-                    while(currFolder != null) {
-                        val folder = folders.find {
-                            it.id == currFolder
-                        } ?: break
-
-                        folderPath.add(folder.name)
-
-                        currFolder = folder.parentId
-                    }
-
-                    folderPath.add("Home")
-                    val currentFolderPath = folderPath
-                        .reversed()
-                        .joinToString("/")
-
-                    //back button
-                    TextButton(
-                        onClick = {
-                            currentFolderId = folders.find {
-                                it.id == currentFolderId
-                            }?.parentId
-                        }
-                    ) {Text("← Back")}
-
-                    Text(
-                        text = currentFolderPath,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-
-            }// end of if statement
-
-
-
-            } //end of row
-
-
-
-
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(minSize = 320.dp),
+                modifier = Modifier.widthIn(max = 1040.dp).fillMaxSize(),
+                contentPadding = PaddingValues(start = 20.dp, top = 24.dp, end = 20.dp, bottom = 88.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(folders.filter { it.parentId == currentFolderId }) { folder ->
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    Column(
+                        modifier = Modifier.padding(bottom = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        if (currentFolder != null) {
+                            val ancestors = generateSequence(currentFolder.parentId?.let(foldersById::get)) {
+                                it.parentId?.let(foldersById::get)
+                            }.toList().asReversed()
+                            val path = listOf(stringResource(R.string.home)) + ancestors.map { it.name }
+                            Text(
+                                text = path.joinToString(" / "),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = colors.onSurfaceVariant
+                            )
+                        }
+                        Text(
+                            text = currentFolder?.name ?: stringResource(R.string.learning_materials),
+                            modifier = Modifier.semantics { heading() },
+                            style = MaterialTheme.typography.headlineMedium
+                        )
+                        Text(
+                            text = if (currentFolder == null) {
+                                stringResource(R.string.library_description)
+                            } else {
+                                folderCountLabel(visibleFolders.size)
+                            },
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = colors.onSurfaceVariant
+                        )
+                    }
+                }
+                if (visibleFolders.isEmpty()) {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.empty_folders),
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            TextButton(onClick = openCreateDialog) {
+                                Text(stringResource(R.string.new_folder))
+                            }
+                        }
+                    }
+                }
+                items(visibleFolders, key = { it.id }) { folder ->
                     FolderButton(
                         title = folder.name,
-                        onClick = {
-                            //set the ID when a folder is clicked on
-                            currentFolderId = folder.id
-                        }
+                        subtitle = folderCountLabel(foldersByParent[folder.id].orEmpty().size),
+                        onClick = { currentFolderId = folder.id }
                     )
                 }
             }
         }
     }
 
-    if(showDialog) {
-        AlertDialog(onDismissRequest = {
-            showDialog = false
-        },
-            title = {Text("Create New Folder")},
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text(stringResource(R.string.new_folder)) },
             text = {
                 OutlinedTextField(
                     value = folderName,
-                    onValueChange = {folderName = it},
-                    label = {Text("Folder Name")},
+                    onValueChange = { folderName = it },
+                    label = { Text(stringResource(R.string.folder_name)) },
+                    modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
             },
             confirmButton = {
-                TextButton(
+                Button(
+                    enabled = folderName.isNotBlank(),
                     onClick = {
-                        if(folderName.isNotBlank()) {
-                            folders.add(Folder(
-                                name = folderName.trim(),
-                                //sets the parent ID to the folder your currently in
-                                parentId = currentFolderId))
-                            showDialog = false
-                        }
-                    }
-                ) {Text("Create")}
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
+                        folders = folders + Folder(name = folderName.trim(), parentId = currentFolderId)
                         showDialog = false
                     }
-                ) {Text("Cancel")}
-            })
+                ) { Text(stringResource(R.string.create_folder)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
     }
 }
+
+@Composable
+private fun folderCountLabel(count: Int): String =
+    pluralStringResource(R.plurals.folder_count, count, count)
