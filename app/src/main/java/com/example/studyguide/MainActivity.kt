@@ -48,19 +48,16 @@ import androidx.compose.ui.unit.dp
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
-import android.provider.OpenableColumns
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.runtime.mutableStateListOf
-import java.io.File
 import androidx.compose.runtime.remember
 import com.example.studyguide.utils.importFile
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import android.widget.Toast
+import com.example.studyguide.components.FileButton
 
 //custom imports
 import com.example.studyguide.components.FolderButton
@@ -130,6 +127,8 @@ fun HomeScreen() {
     val foldersByParent = folders.groupBy { it.parentId }
     val currentFolder = currentFolderId?.let(foldersById::get)
     val visibleFolders = foldersByParent[currentFolderId].orEmpty()
+    val filesByParent = files.groupBy{ (it.parentId)}
+    val visibleFiles = filesByParent[currentFolderId].orEmpty()
     val goBack = { currentFolderId = currentFolder?.parentId }
     val openCreateDialog = {
         folderName = ""
@@ -175,7 +174,7 @@ fun HomeScreen() {
     BackHandler(enabled = currentFolder != null, onBack = goBack)
 
     //filter files by folder
-    val visibleFiles = files.filter {
+    val shownFiles = files.filter {
         it.parentId == currentFolderId
     }
 
@@ -240,13 +239,17 @@ fun HomeScreen() {
         }
     ) { innerPadding ->
         Box(
-            modifier = Modifier.fillMaxSize().padding(innerPadding),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding),
             contentAlignment = Alignment.TopCenter
         ) {
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 320.dp),
                 state = gridState,
-                modifier = Modifier.widthIn(max = 1040.dp).fillMaxSize(),
+                modifier = Modifier
+                    .widthIn(max = 1040.dp)
+                    .fillMaxSize(),
                 contentPadding = PaddingValues(start = 20.dp, top = 24.dp, end = 20.dp, bottom = 88.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -283,10 +286,12 @@ fun HomeScreen() {
                         )
                     }
                 }
-                if (visibleFolders.isEmpty() && visibleFiles.isEmpty()) {
+                if (visibleFolders.isEmpty() && shownFiles.isEmpty()) {
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         Column(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 24.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
@@ -295,7 +300,7 @@ fun HomeScreen() {
                                 style = MaterialTheme.typography.titleMedium
                             )
                             TextButton(onClick = openCreateDialog) {
-                                Text(stringResource(R.string.upload_file))
+                                Text(stringResource(R.string.new_folder))
                             }
                         }
                     }
@@ -304,13 +309,16 @@ fun HomeScreen() {
                 items(visibleFolders, key = { it.id }) { folder ->
                     FolderButton(
                         title = folder.name,
-                        subtitle = folderCountLabel(foldersByParent[folder.id].orEmpty().size),
+                        subtitle = folderCountLabel(foldersByParent[folder.id].orEmpty().size) + " - " + fileCountLabel(filesByParent[folder.id].orEmpty().size),
                         onClick = { currentFolderId = folder.id }
                     )
                 }
                 //display files
-                items(visibleFiles, key = { it.id }) { file ->
-                    Text(text = file.name)
+                items(shownFiles, key = { it.id }) { file ->
+                    FileButton(
+                        title = file.name
+                    )
+                    //Text(text = file.name)
                 }
             }
         }
@@ -350,3 +358,7 @@ fun HomeScreen() {
 @Composable
 private fun folderCountLabel(count: Int): String =
     pluralStringResource(R.plurals.folder_count, count, count)
+
+@Composable
+private fun fileCountLabel(count: Int): String =
+    pluralStringResource(R.plurals.file_count, count, count)

@@ -27,11 +27,11 @@ import com.example.studyguide.R
 fun FileButton(
     title: String,
 //    subtitle: String = "",
-    onClick: () -> Unit
+//    onClick: () -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
     OutlinedCard(
-        onClick = onClick,
+        //onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.outlinedCardColors(containerColor = colors.surface),
@@ -48,7 +48,7 @@ fun FileButton(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    painter = painterResource(R.drawable.ic_folder),
+                    painter = painterResource(R.drawable.ic_document),
                     contentDescription = null,
                     tint = colors.onPrimaryContainer
                 )
