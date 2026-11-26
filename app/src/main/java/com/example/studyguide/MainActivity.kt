@@ -1,6 +1,7 @@
 
 package com.example.studyguide
 
+import android.annotation.SuppressLint
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -13,6 +14,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import com.example.studyguide.components.FolderButton
+import com.example.studyguide.models.Folder
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -26,23 +35,28 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@SuppressLint("UnrememberedMutableState")
 @Composable
 fun HomeScreen() {
 
-    val folders = listOf(
-        "Computer Science",
-        "Mathematics",
-        "Biology"
-    )
+    var showDialog by remember {mutableStateOf(false)}
+    var folderName by remember {mutableStateOf("")}
+
+    val folders = remember {
+        mutableStateListOf<Folder>()
+    }
 
     Scaffold(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    // Folder creation will go here
+                    folderName = ""
+                    showDialog = true
                 }
             ) {
-                Text("New Folder")
+                Text(text = "+",
+                    style = MaterialTheme.typography.headlineMedium)
+
             }
         }
     ) { innerPadding ->
@@ -72,22 +86,46 @@ fun HomeScreen() {
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(folders) { folder ->
-
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                // Folder navigation will go here
-                            }
-                    ) {
-                        Text(
-                            text = folder,
-                            modifier = Modifier.padding(20.dp),
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                    }
+                    FolderButton(
+                        title = folder.name,
+                        onClick = {
+                            //future folder navigation
+                        }
+                    )
                 }
             }
         }
+    }
+
+    if(showDialog) {
+        AlertDialog(onDismissRequest = {
+            showDialog = false
+        },
+            title = {Text("Create New Folder")},
+            text = {
+                OutlinedTextField(
+                    value = folderName,
+                    onValueChange = {folderName = it},
+                    label = {Text("Folder Name")},
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if(folderName.isNotBlank()) {
+                            folders.add(Folder(name = folderName.trim()))
+                            showDialog = false
+                        }
+                    }
+                ) {Text("Create")}
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showDialog = false
+                    }
+                ) {Text("Cancel")}
+            })
     }
 }
