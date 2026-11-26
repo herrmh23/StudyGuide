@@ -193,7 +193,7 @@ fun HomeScreen() {
                                 style = MaterialTheme.typography.titleMedium
                             )
                             TextButton(onClick = openCreateDialog) {
-                                Text(stringResource(R.string.new_folder))
+                                Text(stringResource(R.string.upload_file))
                             }
                         }
                     }
