@@ -45,9 +45,28 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import android.provider.OpenableColumns
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.runtime.mutableStateListOf
+import java.io.File
+import androidx.compose.runtime.remember
+import com.example.studyguide.utils.importFile
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import android.widget.Toast
+
+//custom imports
 import com.example.studyguide.components.FolderButton
 import com.example.studyguide.models.Folder
 import com.example.studyguide.ui.theme.StudyGuideTheme
+import com.example.studyguide.models.StudyFile
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -86,10 +105,23 @@ private val folderListSaver = listSaver<List<Folder>, Bundle>(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen() {
-    var showDialog by rememberSaveable { mutableStateOf(false) }
+    var showDialog by rememberSaveable {mutableStateOf(false) }
     var folderName by rememberSaveable { mutableStateOf("") }
-    var folders by rememberSaveable(stateSaver = folderListSaver) { mutableStateOf(emptyList<Folder>()) }
-    var currentFolderId by rememberSaveable { mutableStateOf<String?>(null) }
+    var showAddMenu by remember { mutableStateOf(false) }
+
+    //region List Variables
+    //folders list
+    var folders by rememberSaveable(stateSaver = folderListSaver) {
+        mutableStateOf(emptyList<Folder>())
+    }
+    var currentFolderId by rememberSaveable {
+        mutableStateOf<String?>(null)
+    }
+    //files list
+    var files by remember {
+        mutableStateOf<List<StudyFile>>(emptyList())
+    }
+    //endregion
 
     val gridState = rememberSaveable(currentFolderId, saver = LazyGridState.Saver) {
         LazyGridState()
@@ -105,7 +137,47 @@ fun HomeScreen() {
     }
     val colors = MaterialTheme.colorScheme
 
+    //region Access File Selection Tools
+    //allows for file picker to be opened and file to be picked
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    val filePicker = rememberLauncherForActivityResult( //allows app to launch another android service
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri -> //file id
+        if(uri != null) { //if a file is picked
+            val parentId = currentFolderId
+
+            scope.launch {
+                try {
+                    val newFile = withContext(Dispatchers.IO){
+                        importFile(
+                            context = context,
+                            uri = uri,
+                            parentId = parentId
+                        )
+                    }
+
+                    files = files + newFile
+
+                } catch(e: Exception) {
+                    Toast.makeText(
+                        context,
+                        "Unable to import file",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+    }
+    //endregion
+
     BackHandler(enabled = currentFolder != null, onBack = goBack)
+
+    //filter files by folder
+    val visibleFiles = files.filter {
+        it.parentId == currentFolderId
+    }
 
     Scaffold(
         topBar = {
@@ -125,15 +197,45 @@ fun HomeScreen() {
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = openCreateDialog,
-                containerColor = colors.primary,
-                contentColor = colors.onPrimary
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_add),
-                    contentDescription = stringResource(R.string.new_folder)
-                )
+            Box {
+                FloatingActionButton(
+                    onClick = {
+                        showAddMenu = !showAddMenu
+                    }
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_add),
+                        contentDescription = stringResource(R.string.new_folder)
+                    )
+                }
+
+                DropdownMenu(
+                    expanded = showAddMenu,
+                    onDismissRequest = {showAddMenu = false}
+                ) {
+                    DropdownMenuItem(
+                        text = {Text("New Folder")},
+                        onClick = {
+                            showAddMenu = false
+                            folderName = ""
+                            showDialog = true
+                        }
+                    )
+
+                    DropdownMenuItem(
+                        text = {Text("New File")},
+                        onClick = {
+                            showAddMenu = false
+
+                            filePicker.launch(
+                                arrayOf(
+                                    "application/pdf",
+                                    "text/plain"
+                                )
+                            )
+                        }
+                    )
+                }
             }
         }
     ) { innerPadding ->
@@ -181,7 +283,7 @@ fun HomeScreen() {
                         )
                     }
                 }
-                if (visibleFolders.isEmpty()) {
+                if (visibleFolders.isEmpty() && visibleFiles.isEmpty()) {
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         Column(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
@@ -198,12 +300,17 @@ fun HomeScreen() {
                         }
                     }
                 }
+                //display folders
                 items(visibleFolders, key = { it.id }) { folder ->
                     FolderButton(
                         title = folder.name,
                         subtitle = folderCountLabel(foldersByParent[folder.id].orEmpty().size),
                         onClick = { currentFolderId = folder.id }
                     )
+                }
+                //display files
+                items(visibleFiles, key = { it.id }) { file ->
+                    Text(text = file.name)
                 }
             }
         }
